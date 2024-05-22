@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "math.h": "c",
+        "stdio.h": "c",
+        "draw_objects.h": "c",
+        "conways_gol.h": "c",
+        "glut.h": "c",
+        "stdbool.h": "c",
+        "stdlib.h": "c"
+    }
+}
