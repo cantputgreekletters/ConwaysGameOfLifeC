@@ -8,6 +8,8 @@
                 "-g",
                 "-Wall",
                 "${file}",
+                "mafs.c",
+                "camera.c",
                 "cgml.c",             
                 "-lopengl32",
                 "-lglu32",

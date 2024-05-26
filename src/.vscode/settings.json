@@ -6,6 +6,7 @@
         "conways_gol.h": "c",
         "glut.h": "c",
         "stdbool.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "mafs.h": "c"
     }
 }

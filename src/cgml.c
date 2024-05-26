@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <GL/glut.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
-
+#include "mafs.h"
+#include "camera.h"
 Cell** CellBoard;
 int cell_counter = 0;
 
@@ -13,32 +13,44 @@ int GetCellCounter()
     return cell_counter;
 }
 
-Vector2 NewVector2(float x, float y)
-{
-    Vector2 new_vector;
-    new_vector.x = x;
-    new_vector.y = y;
-    return new_vector;
-}
-
 Cell NewCell(Vector2 center)
 {
     Cell new_cell;
     new_cell.center = center;
     new_cell.is_alive = false;
+    new_cell.alive_neighbors = 0;
     return new_cell;
 }
 
+Cell* GetCellFromScreen(int x, int y)
+{
+    int new_x, new_y;
+    new_x = (int)((x + 60.5 * cell_size + 60 + MyCamera.x) / (2 * (cell_size + 1)));
+    //y isn't that accurate
+    new_y = (int)((y + 38.5 * cell_size + 38 + MyCamera.y) / (2 * (cell_size + 1)));
+    printf("calculated x = %d, calculated y = %d\n", new_x, new_y);
+    if (!(in_range(new_x,0, BoardSize - 1) && in_range(new_y,0, BoardSize - 1)))
+    {
+        return NULL;
+    }
+    printf("returning cell!\n");
+    Cell * target_cell = &CellBoard[new_x][new_y];
+    return target_cell;
+}
 
 void DrawCell(Cell target_cell)
 {
     if (! target_cell.is_alive) {return;}
+    glColor3f(255,255,255); //color of the cell
+    glBegin(GL_POINT);
     float x1,x2,y1,y2;
-    x1 = target_cell.center.x - cell_size / 2;
-    x2 = target_cell.center.x + cell_size / 2;
-    y1 = target_cell.center.y - cell_size / 2;
-    y2 = target_cell.center.y + cell_size / 2;
+    x1 = target_cell.center.x - cell_size / 2 - MyCamera.x;
+    x2 = target_cell.center.x + cell_size / 2 - MyCamera.x;
+    y1 = target_cell.center.y - cell_size / 2 - MyCamera.y;
+    y2 = target_cell.center.y + cell_size / 2 - MyCamera.y;
+    if (x2 < - 2000 || y1 > 2000 || y2 < - 2000 || x1 > 2000) {return;}
     glRectf(x1,y1,x2,y2);
+    glEnd();
 }
 
 void _AllocateMemoryToBoard()
@@ -60,10 +72,7 @@ void _AllocateMemoryToBoard()
         }
     }
 }
-int Randint(int a, int b)
-{
-    return rand() % (b + 1 - a) + a;
-}
+
 void _SetRandomAlive()
 {
     cell_counter = 0;
@@ -100,23 +109,20 @@ void MakeBoard()
     printf("alive cells = %d\n", cell_counter);
 }
 
-int GetNeighbors(int index_x, int index_y)
+void IncrementNeighbors(int index_x, int index_y)
 {
-    int counter = 0;
     int x,y;
+    Cell* target_cell;
     for (x = index_x - 1; x < index_x + 2; x++)
     {
         if (x < 0 || x >= BoardSize) {continue;}
         for (y = index_y - 1; y < index_y + 2; y++)
         {
             if (y < 0 || y >= BoardSize || (x == index_x && y == index_y)) {continue;}
-            if (CellBoard[x][y].is_alive)
-            {
-                counter ++;
-            }
+            target_cell = &CellBoard[x][y];
+            target_cell->alive_neighbors ++;
         }
     }
-    return counter;
 }
 void ApplyRules(int x, int y)
 {
@@ -128,18 +134,28 @@ void ApplyRules(int x, int y)
     */
     int n;
     Cell* target_cell;    
-    n = GetNeighbors(x,y);
     target_cell = &CellBoard[x][y];
-    if (target_cell->is_alive)
+    n = target_cell->alive_neighbors;
+    if (n > 8)
     {
+        printf("cell has more than 8 neighbors\n");
+        printf("Has neighbors = %d at cords x=%d,y=%d\n",n,x,y);
+        printf("Neighbor count directly from cell = %d and = %d",target_cell->alive_neighbors, CellBoard[x][y].alive_neighbors);
+        exit(0);
+    }
+    switch (target_cell->is_alive){
+    case true:
         //is alive
         target_cell->is_alive = n == 2 || n == 3;
-    } else 
-    {
+        break;
+    case false:
         //is dead
         target_cell->is_alive = n == 3;
+        break;
     }
+    target_cell->alive_neighbors = 0;
     if (target_cell->is_alive) {cell_counter ++;}
+    
 }
 
 int ManuallyCheckAliveCells()
@@ -154,12 +170,39 @@ int ManuallyCheckAliveCells()
             {
                 counter ++;
             }
-            
         }
     }
     return counter;
 }
 
+void CountNeighbors()
+{
+    Cell target_cell;
+    int x,y;
+    for (x = 0; x < BoardSize; x++)
+    {
+        for (y = 0; y < BoardSize; y++)
+        {
+            target_cell = CellBoard[x][y];
+            if (target_cell.is_alive)
+            {
+                IncrementNeighbors(x,y);
+            }
+        }
+    }
+}
+
+void Cleanse()
+{
+    int x,y;
+    for (x = 0; x < BoardSize; x++)
+    {
+        for (y = 0; y < BoardSize; y++)
+        {
+            ApplyRules(x,y);
+        }
+    }
+}
 void DrawBoard()
 {
     int x,y;
@@ -169,7 +212,6 @@ void DrawBoard()
     {
         for (y = 0; y < BoardSize; y++)
         {
-            ApplyRules(x,y);
             target_cell = &CellBoard[x][y];
             if(target_cell->is_alive) {DrawCell(*target_cell);}
         }
